@@ -2,6 +2,7 @@ require('dotenv').config(); // MUST be first
 
 if (!process.env.MONGODB_URI) {
   console.error('FATAL: MONGODB_URI is not defined');
+  process.exit(1);
 }
 
 const express = require('express');
@@ -14,12 +15,7 @@ const contactRoutes = require('./routes/contact');
 const logger = require('./logger');
 
 const app = express();
-
-/* ───────────── CONNECT DATABASE ───────────── */
-
-connectDB()
-  .then(() => logger.info("MongoDB connected"))
-  .catch(err => logger.error("MongoDB connection error:", err));
+const PORT = process.env.PORT || 5000;
 
 /* ───────────── SECURITY HEADERS ───────────── */
 
@@ -37,12 +33,11 @@ app.use(cors({
 
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS not allowed"));
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
 
+    return callback(new Error("CORS not allowed"));
   },
   methods: ['GET','POST','OPTIONS'],
   allowedHeaders: ['Content-Type'],
@@ -86,24 +81,46 @@ app.get('/', (req, res) => {
 
 /* ───────────── 404 HANDLER ───────────── */
 
-app.use((req,res)=>{
+app.use((req, res) => {
   res.status(404).json({
-    success:false,
-    message:"Route not found"
+    success: false,
+    message: "Route not found"
   });
 });
 
 /* ───────────── GLOBAL ERROR HANDLER ───────────── */
 
-app.use((err,req,res,next)=>{
+app.use((err, req, res, next) => {
 
   logger.error(err.message);
 
   res.status(500).json({
-    success:false,
-    message:"Internal server error"
+    success: false,
+    message: "Internal server error"
   });
 
 });
 
-module.exports = app;
+/* ───────────── START SERVER ───────────── */
+
+async function startServer() {
+
+  try {
+
+    await connectDB();
+    logger.info("MongoDB connected successfully");
+
+    app.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+    });
+
+  } catch (err) {
+
+    logger.error("Failed to start server:", err);
+    process.exit(1);
+
+  }
+
+}
+
+startServer();
