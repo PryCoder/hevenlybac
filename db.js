@@ -1,53 +1,57 @@
 const mongoose = require('mongoose');
 const logger = require('./logger');
 
-// Cache the connection globally to reuse across invocations
 let cachedConnection = null;
+let connectionPromise = null;
 
 const connectDB = async () => {
   const uri = process.env.MONGODB_URI;
   
   if (!uri) {
-    logger.error('MONGODB_URI is undefined — check your .env file');
-    process.exit(1);
+    logger.error('MONGODB_URI is undefined');
+    throw new Error('MONGODB_URI not configured');
   }
 
-  // Return cached connection if it exists and is valid
-  if (cachedConnection) {
-    logger.info('Using cached MongoDB connection');
+  // Return cached connection if valid
+  if (cachedConnection && mongoose.connection.readyState === 1) {
     return cachedConnection;
   }
 
-  // Log masked URI for confirmation
-  logger.info(`Connecting to MongoDB: ${uri.replace(/:\/\/.*@/, '://<credentials>@')}`);
-
-  try {
-    const connection = await mongoose.connect(uri, {
-      maxPoolSize: 1, // Vercel Hobby Plan limitation
-      minPoolSize: 0,
-      maxIdleTimeMS: 45000, // Close idle connections after 45s
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-
-    // Cache the connection
-    cachedConnection = connection;
-    logger.info('MongoDB connected successfully');
-    return connection;
-  } catch (err) {
-    logger.error(`MongoDB connection error: ${err.message}`);
-    throw err;
+  // Prevent multiple simultaneous connections
+  if (connectionPromise) {
+    return connectionPromise;
   }
+
+  connectionPromise = (async () => {
+    try {
+      const connection = await mongoose.connect(uri, {
+        maxPoolSize: 5,
+        minPoolSize: 2,
+        maxIdleTimeMS: 30000,
+        serverSelectionTimeoutMS: 3000,
+        socketTimeoutMS: 30000,
+        family: 4,
+        retryWrites: true,
+        w: 'majority',
+      });
+
+      cachedConnection = connection;
+      connectionPromise = null;
+      logger.info('MongoDB connected');
+      return connection;
+    } catch (err) {
+      connectionPromise = null;
+      logger.error(`DB error: ${err.message}`);
+      throw err;
+    }
+  })();
+
+  return connectionPromise;
 };
 
-// Handle disconnection events
 mongoose.connection.on('disconnected', () => {
   logger.warn('MongoDB disconnected');
   cachedConnection = null;
-});
-
-mongoose.connection.on('reconnected', () => {
-  logger.info('MongoDB reconnected');
 });
 
 module.exports = connectDB;
