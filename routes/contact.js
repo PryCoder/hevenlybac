@@ -3,7 +3,7 @@ const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const Inquiry = require('../models/Inquiry');
 const { sendAdminNotification, sendClientConfirmation } = require('../services/emailService');
-const { sendWhatsAppAlert } = require('../services/whatsappService');
+
 const logger = require('../logger');
 
 const router = express.Router();
@@ -41,6 +41,10 @@ const validateContact = [
 
 // ── POST /api/contact ──────────────────────────────────────────────────────
 router.post('/', contactLimiter, validateContact, async (req, res) => {
+  // Set a 30-second timeout for this endpoint
+  req.setTimeout(30000);
+  res.setTimeout(30000);
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(422).json({ success: false, errors: errors.array() });
@@ -58,7 +62,7 @@ router.post('/', contactLimiter, validateContact, async (req, res) => {
     const notifications = await Promise.allSettled([
       sendAdminNotification({ name, email, phone, date, eventType, location, guests, budget, message }),
       sendClientConfirmation({ name, email }),
-      sendWhatsAppAlert({ name, email, phone, date, eventType, location, guests, budget, message }),
+     
     ]);
 
     notifications.forEach((result, i) => {
