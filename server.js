@@ -106,7 +106,9 @@ app.use(async (req, res, next) => {
 
 /* ───── ROUTES ───── */
 app.use('/api/contact', contactRoutes);
-
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 app.get('/', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
