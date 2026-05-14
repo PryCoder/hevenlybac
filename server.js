@@ -31,7 +31,9 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://heavenly-6sqh.vercel.app'
+  'https://heavenly-6sqh.vercel.app',
+   "https://www.heavenlyweds.com",
+    "https://heavenlyweds.com"
 ];
 
 app.use(cors({

@@ -28,6 +28,8 @@ app.use(async (req, res, next) => {
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+   "https://www.heavenlyweds.com",
+    "https://heavenlyweds.com",
   process.env.ALLOWED_ORIGIN || 'http://localhost:3000'
 ];
 
